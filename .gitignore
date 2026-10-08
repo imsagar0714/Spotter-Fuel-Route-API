@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+*.py[cod]
+db.sqlite3
+.env
+.pytest_cache/
+.coverage
+htmlcov/
+.deps/
+data/geonames-us.zip
