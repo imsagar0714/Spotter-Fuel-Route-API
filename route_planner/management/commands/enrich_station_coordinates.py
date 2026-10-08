@@ -51,7 +51,7 @@ class Command(BaseCommand):
                     fields = raw_line.decode("utf-8").rstrip("\n").split("\t")
                     if len(fields) < 15 or fields[6] != "P":
                         continue
-                    key = (fields[2].upper(), fields[10].upper())
+                    key = (fields[2].upper(), fields[10].upper())z
                     population = int(fields[14] or 0)
                     existing = cities.get(key)
                     if existing is None or population > existing[0]:
