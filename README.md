@@ -1,6 +1,6 @@
 # Spotter Fuel Route API
 
-A Django REST API that plans a fuel-efficient driving route between two US locations.
+A Django REST API that plans a cost-aware fuel route between two US locations.
 
 Given a start and destination, the API:
 
@@ -56,8 +56,7 @@ Fuel_project/
 │   └── urls.py
 │
 ├── data/
-│   ├── fuel-prices-for-be-assessment.csv
-│   └── geonames-us.zip
+│   └── fuel-prices-for-be-assessment.csv
 │
 ├── route_planner/
 │   ├── management/
@@ -120,6 +119,8 @@ POST /api/v1/route-plan/
      JSON Response
 ```
 
+The API view is kept relatively thin, while the main business logic is handled inside `route_planner/services/`. This makes the individual components easier to test and maintain.
+
 ---
 
 ## Setup
@@ -128,6 +129,7 @@ POST /api/v1/route-plan/
 
 - Python 3.13
 - Internet connection for Nominatim and OSRM
+- GeoNames US dataset for the one-time station coordinate enrichment step
 
 ### 1. Create a virtual environment
 
@@ -140,20 +142,20 @@ py -3.13 -m venv .venv
 
 ### 2. Install dependencies
 
-```bash
+```powershell
 python -m pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
 ### 3. Run migrations
 
-```bash
+```powershell
 python manage.py migrate
 ```
 
 ### 4. Import the fuel-price data
 
-```bash
+```powershell
 python manage.py import_fuel_prices --replace
 ```
 
@@ -161,17 +163,27 @@ python manage.py import_fuel_prices --replace
 
 The supplied fuel CSV does not contain latitude and longitude for the stations.
 
-The project includes a one-time management command that matches stations with GeoNames US city coordinates:
+The project includes a one-time management command that matches stations with GeoNames US city coordinates.
 
-```bash
+Place the GeoNames US dataset at:
+
+```text
+data/geonames-us.zip
+```
+
+Then run:
+
+```powershell
 python manage.py enrich_station_coordinates
 ```
 
-This step is intentionally performed before making API requests so that the application does not need to geocode thousands of stations for every route request.
+The GeoNames ZIP is intentionally excluded from Git because it is an external data artifact. It is only required when preparing station coordinates locally.
+
+This step is performed before making API requests so that the application does not need to geocode thousands of stations for every route request.
 
 ### 6. Start the server
 
-```bash
+```powershell
 python manage.py runserver
 ```
 
@@ -193,7 +205,7 @@ http://127.0.0.1:8000/
 POST /api/v1/route-plan/
 ```
 
-**Request**
+### Request
 
 ```json
 {
@@ -202,7 +214,7 @@ POST /api/v1/route-plan/
 }
 ```
 
-**Example using cURL**
+### Example using cURL
 
 ```bash
 curl -X POST http://127.0.0.1:8000/api/v1/route-plan/ \
@@ -210,7 +222,9 @@ curl -X POST http://127.0.0.1:8000/api/v1/route-plan/ \
   -d "{\"start\":\"Dallas, TX\",\"finish\":\"Houston, TX\"}"
 ```
 
-### Response
+---
+
+## Response
 
 The API returns:
 
@@ -226,7 +240,7 @@ The API returns:
 - Total fuel consumed
 - Total estimated fuel cost
 
-**Example response**
+Example response:
 
 ```json
 {
@@ -253,7 +267,13 @@ The API returns:
         "maximum_range_miles": 500,
         "tank_capacity_gallons": 50
     },
-    "fuel_stops": [],
+    "fuel_stops": [
+        {
+            "name": "CIRCLE K #2741192",
+            "gallons_to_buy": 23.84,
+            "cost": 69.11
+        }
+    ],
     "summary": {
         "total_fuel_gallons": 23.84,
         "total_fuel_cost": 69.11,
@@ -271,7 +291,7 @@ The actual response contains the complete GeoJSON route coordinates returned by 
 The vehicle assumptions from the assessment are:
 
 | Property | Value |
-|---|---|
+|---|---:|
 | Fuel efficiency | 10 MPG |
 | Tank capacity | 50 gallons |
 | Maximum range | 500 miles |
@@ -285,7 +305,7 @@ The logic is:
 1. If the destination is reachable, buy only enough fuel to reach it.
 2. Otherwise, if a cheaper reachable station exists, buy enough fuel to reach that station.
 3. If there is no cheaper reachable station, fill the tank and continue towards the cheapest reachable station.
-4. If no valid station can be reached within the maximum range, return a 422 response instead of producing an invalid fuel plan.
+4. If no valid station can be reached within the maximum range, return a `422` response instead of producing an invalid fuel plan.
 
 For this assessment, the vehicle starts empty. The first fuel stop is the closest supplied station within 35 miles of the starting location.
 
@@ -371,7 +391,7 @@ The project contains tests for the main parts of the application:
 
 Run the complete test suite with:
 
-```bash
+```powershell
 python manage.py test
 ```
 
